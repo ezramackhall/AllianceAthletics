@@ -5,9 +5,13 @@ import vuetify from './plugins/vuetify';
 import {store} from './store/index.js'
 import * as firebase from "firebase";
 import Alert from './components/Shared/Alert.vue'
+import EditWorkoutDetails from "./components/Workouts/EditWotkoutDetails/EditWorkoutDetails";
+import RegisterDialog from "./components/Workouts/Registration/RegisterDialog";
 
 Vue.config.productionTip = false
 Vue.component('app-alert', Alert)
+Vue.component('app-edit-workout', EditWorkoutDetails)
+Vue.component('app-registration', RegisterDialog)
 
 new Vue({
   router,
@@ -25,6 +29,7 @@ new Vue({
     firebase.auth().onAuthStateChanged((user) => {
       if (user){
         this.$store.dispatch('autoSignIn', user)
+        this.$store.dispatch('fetchUserData')
       }
     })
     this.$store.dispatch('loadActions')

@@ -37,19 +37,30 @@
                             :next-icon="mdiArrowRight"
                             :prev-icon="mdiArrowLeft"
                 >
-                    <v-carousel-item
-                            v-for="(item) in items"
-                            :key="item.id"
-                            :src="item.src"
-                            @click="onLoadWorkouts(item.id)"
-                            reverse-transition="fade-transition"
-                            transition="fade-transition">
-                        <div class="title">
-                            <p class="title-text">
-                                {{item.title}}
-                            </p>
-                        </div>
-                    </v-carousel-item>
+                    <v-layout row wrap v-if = "loading">
+                        <v-flex xs12 class="text-center">
+                            <v-progress-circular indeterminate
+                                                 class="text--primary"
+                                                 :width="7"
+                                                 :size="70"
+                            >
+
+                            </v-progress-circular>
+                        </v-flex>
+                    </v-layout>
+                        <v-carousel-item
+                                v-for="(item) in items"
+                                :key="item.id"
+                                :src="item.src"
+                                @click="onLoadWorkouts(item.id)"
+                                reverse-transition="fade-transition"
+                                transition="fade-transition">
+                            <div class="title">
+                                <p class="title-text">
+                                    {{item.title}}
+                                </p>
+                            </div>
+                        </v-carousel-item>
                 </v-carousel>
             </v-flex>
         </v-layout>

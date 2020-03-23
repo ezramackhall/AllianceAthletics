@@ -33,11 +33,35 @@ export const store = new Vuex.Store({
         error: null,
     },
     mutations: {
+        registerUserForWorkout(state, payload){
+            const id = payload.id
+            if (state.user.registeredWorkouts.findIndex(workout => workout.id === id )>=0){
+                return
+            }
+            state.user.registeredWorkouts.push(id)
+            state.user.fbKeys[id] = payload.fbKey
+        },
+        unregisterUserFromWorkout(state, payload) {
+            const registeredWorkouts = state.user.registeredWorkouts
+            registeredWorkouts.splice(registeredWorkouts.findIndex(workout => workout.id === payload), 1)
+            Reflect.deleteProperty(state.user.fbKeys, payload)
+        },
         setLoadedWorkouts(state, payload){
             state.loadedWorkouts = payload
         },
         createWorkout(state,payload){
             state.loadedWorkouts.push(payload)
+        },
+        updateWorkoutDetails(state, payload){
+            const workout = state.loadedWorkouts.find(workout => {
+                return workout.id === payload.id
+            })
+            if(payload.title){
+               workout.title = payload.title
+            }
+            if(payload.description){
+                workout.description = payload.description
+            }
         },
         setUser(state, payload){
             state.user = payload
@@ -53,6 +77,39 @@ export const store = new Vuex.Store({
         }
     },
     actions: {
+        registerUserForWorkout({commit, getters}, payload) {
+            commit('setLoading', true)
+            const user = getters.user
+            firebase.database().ref('/users/' + user.id).child('/registration/')
+                .push(payload)
+                .then((data) => {
+                    commit('setLoading', false)
+                    commit('registerUserForWorkout', {id: payload, fbKey: data.key})
+                })
+                .catch((error) => {
+                    console.log(error)
+                    commit('setLoading', false)
+                })
+        },
+        unregisterUserFromWorkout({commit, getters}, payload) {
+            commit('setLoading', true)
+            const user = getters.user
+            if(!user.fbKeys){
+                return
+            }
+            const fbKey = user.fbKeys[payload]
+            firebase.database().ref('/users/' + user.id + '/registration/').child(fbKey)
+                .remove()
+                .then(() => {
+                    commit('setLoading', false)
+                    commit('unregisterUserFromWorkout', payload)
+                })
+                .catch((error) => {
+                    console.log(error)
+                    commit('setLoading', false)
+                })
+
+        },
         loadActions({commit}){
             commit('setLoading', true)
             firebase.database().ref('workouts').once('value')
@@ -63,6 +120,7 @@ export const store = new Vuex.Store({
                         workouts.push({
                             id:key,
                             title: obj[key].title,
+                            imageURL: obj[key].src,
                             src: obj[key].src,
                             description: obj[key].description,
                             creatorId: obj[key].creatorId,
@@ -114,6 +172,25 @@ export const store = new Vuex.Store({
                     console.log(error)
                 })
         },
+        updateWorkoutDetails({commit}, payload){
+            commit('setLoading', true)
+            const updateObj ={}
+            if(payload.title){
+                updateObj.title = payload.title
+            }
+            if(payload.description){
+                updateObj.description = payload.description
+            }
+            return firebase.database().ref('workouts').child(payload.id).update(updateObj)
+                .then(() =>{
+                    commit('setLoading', false)
+                    commit('updateWorkoutDetails', payload)
+                })
+                .catch((error) => {
+                    console.log(error)
+                    commit('setLoading', false)
+                })
+        },
         signUserUp({commit}, payload){
             commit('setLoading', true);
             commit('clearError');
@@ -123,7 +200,8 @@ export const store = new Vuex.Store({
                         commit('setLoading', false);
                         const newUser = {
                             id: user.uid,
-                            registeredWorkouts: []
+                            registeredWorkouts: [],
+                            fbKeys: {},
                         };
                         commit('setUser', newUser)
                     }
@@ -144,7 +222,8 @@ export const store = new Vuex.Store({
                         commit('setLoading', false);
                         const newUser = {
                             id: user.uid,
-                            registeredWorkouts: []
+                            registeredWorkouts: [],
+                            fbKeys: {},
                         }
                         commit('setUser', newUser)
                     }
@@ -159,7 +238,31 @@ export const store = new Vuex.Store({
                 )
         },
         autoSignIn({commit}, payload){
-          commit('setUser', {id:payload.uid, registeredWorkouts: []})
+          commit('setUser', {id:payload.uid, registeredWorkouts: [], fbKeys: {}})
+        },
+        fetchUserData({commit, getters}){
+            commit('setLoading', true)
+            firebase.database().ref('/users/' + getters.user.id + '/registration/').once('value')
+                .then((data) =>{
+                    const pairs = data.val()
+                    let registeredWorkouts = []
+                    let swappedPairs = {}
+                    for( let key in pairs){
+                        registeredWorkouts.push(pairs[key])
+                        swappedPairs[pairs[key]] = key
+                    }
+                    const updatedUser = {
+                        id: getters.user.id,
+                        registeredWorkouts: registeredWorkouts,
+                        fbKeys: swappedPairs
+                    }
+                    commit('setLoading', false)
+                    commit('setUser', updatedUser)
+                })
+                .catch(error => {
+                    console.log(error)
+                    commit('setLoading', false)
+                })
         },
         logout({commit}){
             firebase.auth().signOut()
